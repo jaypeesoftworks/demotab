@@ -1,0 +1,66 @@
+@import "tailwindcss" source("../site");
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, Menlo, monospace;
+  --color-brand: #1967d2;
+  --color-brand-hover: #185abc;
+}
+
+:root {
+  --content-font-size: 16px;
+  --code-font-size: 14px;
+  --code-bg: #1e1e1e;
+  --code-text: #d4d4d4;
+  --code-toolbar-bg: #252526;
+  --code-toolbar-border: rgba(255, 255, 255, 0.08);
+  --code-control: rgba(255, 255, 255, 0.45);
+  --code-count: rgba(255, 255, 255, 0.28);
+  --code-line-number: #858585;
+  --code-hover: rgba(255, 255, 255, 0.04);
+  --syntax-keyword: #569cd6;
+  --syntax-string: #ce9178;
+  --syntax-comment: #6a9955;
+  --syntax-number: #b5cea8;
+  --syntax-function: #dcdcaa;
+  --syntax-operator: #d4d4d4;
+  --syntax-class: #4ec9b0;
+  --syntax-builtin: #9cdcfe;
+  --syntax-tag: #f44747;
+  --syntax-attribute: #92c3f8;
+  --syntax-punctuation: #d4d4d4;
+}
+
+body.code-light {
+  --code-bg: #ffffff;
+  --code-text: #24292e;
+  --code-toolbar-bg: #f6f8fa;
+  --code-toolbar-border: rgba(0, 0, 0, 0.1);
+  --code-control: #57606a;
+  --code-count: #8c959f;
+  --code-line-number: #8c959f;
+  --code-hover: rgba(0, 0, 0, 0.04);
+  --syntax-keyword: #d73a49;
+  --syntax-string: #032f62;
+  --syntax-comment: #6a737d;
+  --syntax-number: #005cc5;
+  --syntax-function: #6f42c1;
+  --syntax-operator: #d73a49;
+  --syntax-class: #6f42c1;
+  --syntax-builtin: #005cc5;
+  --syntax-tag: #22863a;
+  --syntax-attribute: #6f42c1;
+  --syntax-punctuation: #24292e;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+  }
+}

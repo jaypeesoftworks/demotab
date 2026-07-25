@@ -1,81 +1,85 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="description" content="Paste anything. Display beautifully. Nothing leaves your browser.">
   <meta name="robots" content="noindex">
   <title>DemoTab</title>
-  <link rel="stylesheet" href="app.css">
-  <!-- No external resources. No analytics. No fonts. No CDN. -->
-  <!-- Everything you paste stays in this tab. -->
+  <link rel="stylesheet" href="app.css?v=20260725">
+  <!-- No external resources, analytics, fonts, or CDN assets. -->
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 </head>
-<body>
-<div id="app">
+<body class="h-full overflow-hidden bg-white font-sans text-[#202124]">
+<div id="app" class="flex h-[100dvh] flex-col overflow-hidden">
 
-  <!-- ── Header ── -->
-  <header id="header">
-    <a class="logo" href="index.html" title="DemoTab"><img src="logo_full.svg" alt="DemoTab" class="logo-img"></a>
+  <header id="header" class="z-10 flex shrink-0 flex-col items-center gap-2 border-b border-[#e8eaed] bg-white px-3 py-2.5 sm:h-[52px] sm:flex-row sm:gap-2.5 sm:px-4 sm:py-0">
+    <a class="flex w-full min-w-0 items-center justify-center sm:flex-1 sm:justify-start" href="index.html" title="DemoTab">
+      <img src="logo_full.svg" alt="DemoTab" class="h-7 w-auto select-none">
+    </a>
 
-    <div class="header-center">
-      <div class="type-selector" role="group" aria-label="Content type">
-        <button class="type-btn active" data-mode="auto"     title="Auto-detect content type">Auto</button>
-        <button class="type-btn"        data-mode="text"     title="Plain text">Text</button>
-        <button class="type-btn"        data-mode="markdown" title="Markdown">Markdown</button>
-        <button class="type-btn"        data-mode="code"     title="Source code with highlighting">Code</button>
-        <button class="type-btn"        data-mode="image"    title="Image (paste or drop)">Image</button>
+    <div class="flex w-full shrink-0 flex-col items-center gap-1.5 sm:w-auto sm:flex-row">
+      <div class="flex flex-wrap justify-center gap-[3px] rounded-full border border-[#e8eaed] bg-[#f8f9fa] p-[3px]" role="group" aria-label="Content type">
+        <button class="type-btn rounded-2xl bg-white px-2.5 py-1 text-[11px] leading-[1.4] font-semibold whitespace-nowrap text-brand shadow-sm sm:px-[11px] sm:text-xs" data-mode="auto" title="Auto-detect content type">Auto</button>
+        <button class="type-btn rounded-2xl px-2.5 py-1 text-[11px] leading-[1.4] font-medium whitespace-nowrap text-[#5f6368] transition hover:bg-[#e8eaed] hover:text-[#202124] sm:px-[11px] sm:text-xs" data-mode="text" title="Plain text">Text</button>
+        <button class="type-btn rounded-2xl px-2.5 py-1 text-[11px] leading-[1.4] font-medium whitespace-nowrap text-[#5f6368] transition hover:bg-[#e8eaed] hover:text-[#202124] sm:px-[11px] sm:text-xs" data-mode="markdown" title="Markdown">Markdown</button>
+        <button class="type-btn rounded-2xl px-2.5 py-1 text-[11px] leading-[1.4] font-medium whitespace-nowrap text-[#5f6368] transition hover:bg-[#e8eaed] hover:text-[#202124] sm:px-[11px] sm:text-xs" data-mode="code" title="Source code with highlighting">Code</button>
+        <button class="type-btn rounded-2xl px-2.5 py-1 text-[11px] leading-[1.4] font-medium whitespace-nowrap text-[#5f6368] transition hover:bg-[#e8eaed] hover:text-[#202124] sm:px-[11px] sm:text-xs" data-mode="image" title="Image (paste or drop)">Image</button>
       </div>
     </div>
 
-    <div class="header-actions">
-      <button id="btn-font-dec" class="btn-sm btn-font-dec" title="Decrease font size (-)">A−</button>
-      <button id="btn-font-inc" class="btn-sm btn-font-inc" title="Increase font size (+)">A+</button>
-      <button id="clear-btn"   class="btn-sm btn-clear" title="Clear (Esc)">Clear</button>
+    <div class="flex w-full min-w-0 items-center justify-center gap-1.5 sm:flex-1 sm:justify-end">
+      <button id="btn-font-dec" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-center text-[13px] font-medium text-[#5f6368] transition hover:border-brand hover:text-brand" title="Decrease font size (-)">A−</button>
+      <button id="btn-font-inc" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-center text-[13px] font-medium text-[#5f6368] transition hover:border-brand hover:text-brand" title="Increase font size (+)">A+</button>
+      <button id="clear-btn" class="hidden rounded-md border border-[#e8eaed] bg-white px-2.5 py-1 text-xs font-medium text-[#5f6368] transition hover:border-[#d93025] hover:text-[#d93025]" title="Clear (Esc)">Clear</button>
     </div>
   </header>
 
-  <!-- ── Main ── -->
-  <main id="main">
+  <main id="main" class="relative min-h-0 flex-1 overflow-hidden">
+    <div id="drop-zone" class="absolute inset-0 flex flex-col items-center justify-center gap-2.5 px-5 py-10 text-center transition-colors" role="main" aria-label="Paste or drop content here">
+      <div id="drop-ring" class="pointer-events-none absolute inset-4 rounded-2xl border-2 border-dashed border-[#e8eaed] transition-colors" aria-hidden="true"></div>
 
-    <!-- Drop zone (shown when empty) -->
-    <div id="drop-zone" role="main" aria-label="Paste or drop content here">
-      <div class="drop-ring" aria-hidden="true"></div>
-
-      <svg class="drop-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-        <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
+      <svg id="drop-icon" class="h-14 w-14 text-[#e8eaed] transition-colors" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="6" y="10" width="36" height="28" rx="4" stroke="currentColor" stroke-width="2.5"/>
         <path d="M16 22h16M16 28h10" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
         <path d="M24 10V6M20 6h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
       </svg>
 
-      <p class="drop-title">Paste with confidence. Nothing leaves your browser.</p>
-      <p class="drop-hint">
-        Press <kbd>Ctrl+V</kbd> or <kbd>⌘V</kbd> &nbsp;·&nbsp; or drop a file
+      <div class="text-[#5f6368]">
+        <p class="text-lg font-medium tracking-[-0.3px] sm:text-[22px]">Paste with confidence.</p>
+        <p class="mt-1 text-2xl font-extrabold tracking-[-0.5px] text-[#202124] sm:text-[30px]">Nothing leaves your browser.</p>
+      </div>
+      <p class="hidden text-sm text-[#9aa0a6] sm:block">
+        Press <kbd class="rounded border border-[#e8eaed] border-b-2 bg-[#f8f9fa] px-1.5 py-0.5 text-[11px] text-[#5f6368]">Ctrl+V</kbd>
+        or <kbd class="rounded border border-[#e8eaed] border-b-2 bg-[#f8f9fa] px-1.5 py-0.5 text-[11px] text-[#5f6368]">⌘V</kbd>
+        · or drop a file
       </p>
 
-      <button id="btn-paste" class="btn-paste" disabled>
+      <button id="btn-paste" class="mt-6 min-w-56 rounded-xl border-2 border-brand bg-white px-8 py-3 text-base font-semibold text-brand shadow-sm transition hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:border-[#e8eaed] disabled:text-[#9aa0a6] disabled:opacity-40">
         Paste from clipboard
       </button>
 
-      <a class="drop-about" href="about.html" target="_blank" rel="noopener">
+      <textarea id="paste-capture" inputmode="none" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Mobile paste target" placeholder="Or tap here, then Paste" class="mt-1 h-12 w-64 resize-none rounded-lg border border-[#c5cae9] bg-[#f8f9fa] px-3 py-3 text-center text-sm text-[#5f6368] outline-none placeholder:text-[#9aa0a6] focus:border-brand focus:ring-2 focus:ring-blue-100 sm:hidden"></textarea>
+      <p id="paste-status" class="min-h-5 text-xs text-[#5f6368]" role="status" aria-live="polite"></p>
+
+      <a class="absolute bottom-5 text-xs text-[#9aa0a6] transition hover:text-brand sm:bottom-[54px]" href="about.html" target="_blank" rel="noopener">
         What is DemoTab?
       </a>
     </div>
 
-    <!-- Content area (shown when content is loaded) -->
-    <div id="content-area" role="region" aria-label="Content display area"></div>
-
+    <div id="content-area" class="absolute inset-0 hidden overflow-auto" role="region" aria-label="Content display area"></div>
   </main>
 
-  <!-- ── Footer ── -->
-  <footer id="footer">
-    <span class="footer-label">Built by</span>
-    <a class="footer-sponsor" href="https://jaypeesoftworks.com" target="_blank" rel="noopener">Jaypee Softworks</a>
+  <footer id="footer" class="flex h-[34px] shrink-0 items-center justify-center gap-1.5 border-t border-[#e8eaed] bg-white">
+    <span class="text-[11px] text-[#9aa0a6]">Built by</span>
+    <a class="text-[11px] font-medium text-[#9aa0a6] transition hover:text-brand" href="https://jaypeesoftworks.com" target="_blank" rel="noopener">Jaypee Softworks</a>
   </footer>
-
 </div>
-<script src="app.js"></script>
+<script src="vendor/markdown-it.min.js?v=14.3.0"></script>
+<script src="markdown-renderer.js?v=20260725"></script>
+<script src="clipboard.js?v=20260725"></script>
+<script src="app.js?v=20260725"></script>
 </body>
 </html>

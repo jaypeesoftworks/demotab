@@ -1,6 +1,6 @@
 // ============================================================
 // DemoTab — app.js
-// Zero external dependencies. Zero network requests.
+// All dependencies are vendored locally. Zero runtime network requests.
 // Everything runs locally in your browser tab.
 // ============================================================
 
@@ -23,7 +23,8 @@ const FONT_STEP = 2;
 
 // ── DOM refs (populated in init) ─────────────────────────────
 
-let $dropZone, $contentArea, $clearBtn, $themeBtn, $pasteBtn;
+let $dropZone, $dropRing, $dropIcon, $contentArea, $clearBtn;
+let $themeBtn, $pasteBtn, $pasteCapture, $pasteStatus;
 
 // ── Syntax Highlighter ───────────────────────────────────────
 
@@ -94,8 +95,26 @@ const BUILTINS_JS = new Set(['Array','Object','String','Number','Boolean','Funct
   'decodeURI','setTimeout','setInterval','clearTimeout','clearInterval',
   'document','window','navigator','localStorage','sessionStorage','console']);
 
+const TOKEN_CLASSES = {
+  keyword: 'text-[var(--syntax-keyword)]',
+  string: 'text-[var(--syntax-string)]',
+  comment: 'text-[var(--syntax-comment)] italic',
+  number: 'text-[var(--syntax-number)]',
+  function: 'text-[var(--syntax-function)]',
+  operator: 'text-[var(--syntax-operator)]',
+  classname: 'text-[var(--syntax-class)]',
+  builtin: 'text-[var(--syntax-builtin)]',
+  tag: 'text-[var(--syntax-tag)]',
+  attr: 'text-[var(--syntax-attribute)]',
+  punct: 'text-[var(--syntax-punctuation)]',
+};
+
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function tokenSpan(type, text) {
+  return '<span class="' + TOKEN_CLASSES[type] + '">' + escHtml(text) + '</span>';
 }
 
 function tokenizeHTML(code) {
@@ -106,7 +125,7 @@ function tokenizeHTML(code) {
       let s = '';
       while (i < code.length && code.slice(i,i+3) !== '-->') { s += c(); i++; }
       s += '-->'; i += 3;
-      out += '<span class="tok-comment">' + escHtml(s) + '</span>';
+      out += tokenSpan('comment', s);
       continue;
     }
     if (c() === '<') {
@@ -114,17 +133,17 @@ function tokenizeHTML(code) {
       if (c() === '/') { s += '/'; i++; }
       let name = '';
       while (i < code.length && /[a-zA-Z0-9\-:]/.test(c())) { name += c(); i++; }
-      s += '<span class="tok-tag">' + escHtml(name) + '</span>';
+      s += tokenSpan('tag', name);
       while (i < code.length && c() !== '>' && !(c() === '/' && code[i+1] === '>')) {
         if (/[a-zA-Z_\-]/.test(c())) {
           let attr = '';
           while (i < code.length && /[a-zA-Z0-9\-_:]/.test(c())) { attr += c(); i++; }
-          s += '<span class="tok-attr">' + escHtml(attr) + '</span>';
+          s += tokenSpan('attr', attr);
         } else if (c() === '"' || c() === "'") {
           const q = c(); let val = q; i++;
           while (i < code.length && c() !== q) { val += c(); i++; }
           val += q; i++;
-          s += '<span class="tok-string">' + escHtml(val) + '</span>';
+          s += tokenSpan('string', val);
         } else { s += escHtml(c()); i++; }
       }
       if (c() === '/') { s += '/'; i++; }
@@ -143,7 +162,7 @@ function tokenize(code, lang) {
   let out = '', i = 0;
   const c = () => code[i];
   const peek = (n=1) => code[i+n];
-  const emit = (cls, txt) => cls ? '<span class="tok-' + cls + '">' + escHtml(txt) + '</span>' : escHtml(txt);
+  const emit = (cls, txt) => cls ? tokenSpan(cls, txt) : escHtml(txt);
 
   while (i < code.length) {
     if ((c()==='/' && peek()==='/') || (lang==='python' && c()==='#') ||
@@ -235,107 +254,10 @@ function detectLang(text) {
 
 // ── Markdown Parser ───────────────────────────────────────────
 
-// Block javascript: in all URLs; block data: in link hrefs (phishing vector).
-// data: is allowed in img src (legitimate base64 images).
-function safeUrl(url, allowData) {
-  try {
-    const u = new URL(url, 'https://x');
-    if (u.protocol === 'javascript:') return '#';
-    if (!allowData && u.protocol === 'data:') return '#';
-  } catch { /* relative URL — pass through */ }
-  return url;
-}
-
-function parseInline(text) {
-  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  return text
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) =>
-      '<img alt="' + alt + '" src="' + safeUrl(src, true) + '" style="max-width:100%">')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, href) =>
-      '<a href="' + safeUrl(href, false) + '" target="_blank" rel="noopener noreferrer">' + text + '</a>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-    .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/__(.+?)__/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    .replace(/~~(.+?)~~/g, '<del>$1</del>');
-}
+const markdown = window.createMarkdownRenderer(window.markdownit, highlight, detectLang);
 
 function parseMarkdown(md) {
-  const lines = md.split('\n');
-  let html = '';
-  let i = 0;
-  let inPara = false, inUL = false, inOL = false;
-  const closePara = () => { if (inPara) { html += '</p>\n'; inPara = false; } };
-  const closeUL   = () => { if (inUL)   { html += '</ul>\n'; inUL = false; } };
-  const closeOL   = () => { if (inOL)   { html += '</ol>\n'; inOL = false; } };
-  const closeAll  = () => { closePara(); closeUL(); closeOL(); };
-
-  while (i < lines.length) {
-    const line = lines[i];
-    const fenceMatch = line.match(/^(`{3,}|~{3,})([\w+-]*)/);
-    if (fenceMatch) {
-      closeAll();
-      const fence = fenceMatch[1], lang = fenceMatch[2] || '';
-      i++;
-      const codeLines = [];
-      while (i < lines.length && !lines[i].startsWith(fence)) { codeLines.push(lines[i]); i++; }
-      i++;
-      const codeText = codeLines.join('\n');
-      const dl = lang || detectLang(codeText);
-      html += '<pre><code class="lang-' + dl + '">' + highlight(codeText, dl) + '</code></pre>\n';
-      continue;
-    }
-    const headMatch = line.match(/^(#{1,6})\s+(.+)/);
-    if (headMatch) {
-      closeAll();
-      const lv = headMatch[1].length;
-      html += '<h' + lv + '>' + parseInline(headMatch[2]) + '</h' + lv + '>\n';
-      i++; continue;
-    }
-    if (i+1 < lines.length && lines[i+1].match(/^=+\s*$/) && line.trim()) {
-      closeAll(); html += '<h1>' + parseInline(line) + '</h1>\n'; i += 2; continue;
-    }
-    if (i+1 < lines.length && lines[i+1].match(/^-+\s*$/) && line.trim() && !line.match(/^[-*+] /)) {
-      closeAll(); html += '<h2>' + parseInline(line) + '</h2>\n'; i += 2; continue;
-    }
-    if (line.match(/^([-*_] ?){3,}\s*$/)) {
-      closeAll(); html += '<hr>\n'; i++; continue;
-    }
-    if (line.startsWith('>')) {
-      closeAll();
-      const bqLines = [];
-      while (i < lines.length && lines[i].startsWith('>')) { bqLines.push(lines[i].replace(/^>\s?/, '')); i++; }
-      html += '<blockquote>' + parseMarkdown(bqLines.join('\n')) + '</blockquote>\n';
-      continue;
-    }
-    const ulMatch = line.match(/^[-*+]\s+(.+)/);
-    if (ulMatch) {
-      closePara(); closeOL();
-      if (!inUL) { html += '<ul>\n'; inUL = true; }
-      html += '<li>' + parseInline(ulMatch[1]) + '</li>\n';
-      i++; continue;
-    }
-    const olMatch = line.match(/^\d+\.\s+(.+)/);
-    if (olMatch) {
-      closePara(); closeUL();
-      if (!inOL) { html += '<ol>\n'; inOL = true; }
-      html += '<li>' + parseInline(olMatch[1]) + '</li>\n';
-      i++; continue;
-    }
-    if (line.trim() === '') { closeAll(); i++; continue; }
-    if (line.match(/^<[a-zA-Z]/)) { closeAll(); html += escHtml(line) + '\n'; i++; continue; }
-    closeUL(); closeOL();
-    if (!inPara) { html += '<p>'; inPara = true; } else { html += ' '; }
-    html += parseInline(line);
-    i++;
-    const next = lines[i] || '';
-    if (!next.trim() || next.match(/^#{1,6} |^[-*+] |\d+\. |^>|^`{3}/)) { closePara(); }
-  }
-  closeAll();
-  return html;
+  return markdown.render(md);
 }
 
 // ── Content Type Detection ────────────────────────────────────
@@ -413,10 +335,15 @@ function toggleCodeTheme() {
 // ── Line Wrap ────────────────────────────────────────────────
 
 function applyWrap() {
-  const pre = $contentArea.querySelector('.render-code');
-  if (pre) pre.classList.toggle('wrap-lines', state.wrapLines);
+  const code = $contentArea.querySelector('pre code');
+  if (code) {
+    code.classList.toggle('whitespace-pre-wrap', state.wrapLines);
+    code.classList.toggle('break-all', state.wrapLines);
+    code.classList.toggle('whitespace-pre', !state.wrapLines);
+  }
   document.querySelectorAll('.code-wrap-btn').forEach(btn => {
-    btn.classList.toggle('active', state.wrapLines);
+    btn.classList.toggle('bg-white/25', state.wrapLines);
+    btn.classList.toggle('text-[var(--code-text)]', state.wrapLines);
   });
 }
 
@@ -429,7 +356,7 @@ function toggleWrap() {
 
 function renderText(text) {
   const div = document.createElement('div');
-  div.className = 'render-text';
+  div.className = 'mx-auto w-full max-w-[860px] flex-1 px-4 py-4 font-sans leading-[1.8] text-[#202124] [font-size:var(--content-font-size)] sm:px-[clamp(20px,8vw,120px)] sm:py-7';
   const blocks = text.split(/\n{2,}/);
   for (const block of blocks) {
     const trimmed = block.trim();
@@ -439,11 +366,12 @@ function renderText(text) {
     const isPre = lines.length > 3 && avgLen < 60;
     if (isPre) {
       const pre = document.createElement('div');
-      pre.className = 'pre-block';
+      pre.className = 'my-3 whitespace-pre-wrap break-all rounded-lg border border-[#e8eaed] bg-[#f8f9fa] px-4 py-3 font-mono text-[0.85em] leading-[1.6]';
       pre.textContent = trimmed;
       div.appendChild(pre);
     } else {
       const p = document.createElement('p');
+      p.className = 'mb-[1.1em] last:mb-0';
       p.textContent = lines.join(' ');
       div.appendChild(p);
     }
@@ -453,7 +381,7 @@ function renderText(text) {
 
 function renderMarkdown(text) {
   const div = document.createElement('div');
-  div.className = 'render-markdown';
+  div.className = 'prose prose-slate mx-auto w-full max-w-[860px] flex-1 px-4 py-4 [font-size:var(--content-font-size)] prose-a:text-brand prose-img:rounded-lg prose-pre:border prose-pre:border-[#e8eaed] prose-pre:bg-[#f6f8fa] prose-pre:text-[#202124] prose-code:font-mono prose-table:block prose-table:overflow-x-auto sm:px-[clamp(20px,8vw,120px)] sm:py-7';
   div.innerHTML = parseMarkdown(text);
   div.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
   return div;
@@ -464,15 +392,15 @@ function renderCode(text, lang) {
   state.codeLang = lang;
 
   const wrap = document.createElement('div');
-  wrap.className = 'render-code-wrap';
+  wrap.className = 'flex min-h-0 flex-1 flex-col';
 
   // Toolbar
   const toolbar = document.createElement('div');
-  toolbar.className = 'code-toolbar';
+  toolbar.className = 'flex shrink-0 items-center gap-2 border-b border-[var(--code-toolbar-border)] bg-[var(--code-toolbar-bg)] px-3.5 py-1.5';
 
   // Language selector (replaces static badge)
   const langSelect = document.createElement('select');
-  langSelect.className = 'code-lang-select';
+  langSelect.className = 'cursor-pointer rounded border border-[var(--code-toolbar-border)] bg-transparent px-1 py-0.5 font-mono text-[11px] font-medium text-[var(--code-control)] outline-none hover:text-[var(--code-text)] focus:border-brand focus:text-[var(--code-text)]';
   langSelect.title = 'Switch language';
   [['auto','auto'],['javascript','JavaScript'],['typescript','TypeScript'],
    ['python','Python'],['go','Go'],['rust','Rust'],['java','Java'],
@@ -492,32 +420,36 @@ function renderCode(text, lang) {
 
   // Wrap toggle button
   const wrapBtn = document.createElement('button');
-  wrapBtn.className = 'code-toolbar-btn code-wrap-btn' + (state.wrapLines ? ' active' : '');
+  wrapBtn.className = 'code-wrap-btn cursor-pointer rounded border border-[var(--code-toolbar-border)] bg-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-[var(--code-control)] transition hover:bg-white/15 hover:text-[var(--code-text)]' +
+    (state.wrapLines ? ' bg-white/25 text-[var(--code-text)]' : '');
   wrapBtn.textContent = '↵ Wrap';
   wrapBtn.title = 'Toggle line wrap (W)';
   wrapBtn.addEventListener('click', toggleWrap);
 
   // Theme toggle button
   const themeBtn = document.createElement('button');
-  themeBtn.className = 'code-toolbar-btn code-theme-btn';
+  themeBtn.className = 'code-theme-btn cursor-pointer rounded border border-[var(--code-toolbar-border)] bg-transparent px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-[var(--code-control)] transition hover:bg-white/15 hover:text-[var(--code-text)]';
   themeBtn.textContent = state.codeTheme === 'dark' ? '☀ Light' : '◑ Dark';
   themeBtn.title = state.codeTheme === 'dark' ? 'Switch to light theme (D)' : 'Switch to dark theme (D)';
   themeBtn.addEventListener('click', toggleCodeTheme);
 
   const lines = text.split('\n');
   const lc = document.createElement('span');
-  lc.className = 'code-line-count';
+  lc.className = 'ml-auto font-mono text-[11px] text-[var(--code-count)]';
   lc.textContent = lines.length + ' line' + (lines.length !== 1 ? 's' : '');
 
   toolbar.append(langSelect, wrapBtn, themeBtn, lc);
 
   // Code block
   const pre = document.createElement('pre');
-  pre.className = 'render-code' + (state.wrapLines ? ' wrap-lines' : '');
+  pre.className = 'm-0 flex-1 overflow-auto bg-[var(--code-bg)] p-0';
   const codeEl = document.createElement('code');
+  codeEl.className = 'block py-4 font-mono leading-[1.6] text-[var(--code-text)] [font-size:var(--code-font-size)] [tab-size:2px] ' +
+    (state.wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre');
   const highlighted = highlight(text, lang);
   codeEl.innerHTML = highlighted.split('\n').map((ln, idx) =>
-    '<span class="code-line"><span class="line-num">' + (idx+1) + '</span><span class="line-content">' + ln + '</span></span>'
+    '<span class="flex pr-5 hover:bg-[var(--code-hover)]"><span class="inline-block min-w-10 shrink-0 select-none px-4 text-right text-[13px] text-[var(--code-line-number)]">' +
+    (idx+1) + '</span><span class="flex-1">' + ln + '</span></span>'
   ).join('');
 
 
@@ -528,9 +460,9 @@ function renderCode(text, lang) {
 
 function renderImage(src) {
   const wrap = document.createElement('div');
-  wrap.className = 'render-image-wrap';
+  wrap.className = 'flex flex-1 items-center justify-center p-6 [background:repeating-conic-gradient(#f0f0f0_0%_25%,transparent_0%_50%)_0_0/20px_20px]';
   const img = document.createElement('img');
-  img.className = 'render-image';
+  img.className = 'max-h-full max-w-full rounded-lg object-contain shadow-[0_4px_24px_rgba(0,0,0,.18)]';
   img.src = src;
   img.alt = 'Pasted image';
   wrap.appendChild(img);
@@ -542,43 +474,61 @@ function renderImage(src) {
 function showContent(el) {
   $contentArea.innerHTML = '';
   $contentArea.appendChild(el);
-  $contentArea.classList.add('visible');
+  $contentArea.classList.remove('hidden');
+  $contentArea.classList.add('flex', 'flex-col');
   $dropZone.style.display = 'none';
-  $clearBtn.classList.add('visible');
+  $clearBtn.classList.remove('hidden');
   state.hasContent = true;
 }
 
 function clearContent() {
   $contentArea.innerHTML = '';
-  $contentArea.classList.remove('visible');
+  $contentArea.classList.add('hidden');
+  $contentArea.classList.remove('flex', 'flex-col');
   $dropZone.style.display = '';
-  $clearBtn.classList.remove('visible');
-  showThemeBtn(false);
+  $clearBtn.classList.add('hidden');
   state.hasContent = false;
   setMode('auto');
 }
 
 // ── Paste / Drop ─────────────────────────────────────────────
 
-async function handlePaste(e) {
-  e.preventDefault();
-  const items = e.clipboardData ? Array.from(e.clipboardData.items) : [];
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      const blob = item.getAsFile();
-      if (!blob) continue;
-      setMode('image', false);
-      showContent(renderImage(URL.createObjectURL(blob)));
-      return;
-    }
+function dispatchClipboardPayload(payload) {
+  if (!payload) return false;
+  if (payload.type === 'image') {
+    setMode('image', false);
+    showContent(renderImage(URL.createObjectURL(payload.value)));
+    return true;
   }
-  const text = e.clipboardData.getData('text/plain') || e.clipboardData.getData('text/html') || '';
-  if (text.trim()) dispatchText(text);
+  if (payload.type === 'text' && payload.value.trim()) {
+    dispatchText(payload.value);
+    return true;
+  }
+  return false;
+}
+
+function handlePaste(e) {
+  const payload = window.DemoTabClipboard.fromClipboardEvent(e);
+  if (!payload) {
+    // Mobile Safari can omit clipboardData and insert into a focused editable
+    // control instead. Do not cancel that browser fallback.
+    return;
+  }
+  e.preventDefault();
+  dispatchClipboardPayload(payload);
+}
+
+function setDropActive(active) {
+  $dropZone.classList.toggle('bg-[#e8f0fe]', active);
+  $dropRing.classList.toggle('border-brand', active);
+  $dropRing.classList.toggle('border-[#e8eaed]', !active);
+  $dropIcon.classList.toggle('text-brand', active);
+  $dropIcon.classList.toggle('text-[#e8eaed]', !active);
 }
 
 function handleDrop(e) {
   e.preventDefault();
-  $dropZone.classList.remove('drag-over');
+  setDropActive(false);
   const dt = e.dataTransfer;
   if (dt.files && dt.files.length > 0) {
     const file = dt.files[0];
@@ -609,7 +559,6 @@ function dispatchText(text) {
   } else {
     showContent(renderText(text));
   }
-  showThemeBtn(isCode);
   $contentArea.dataset.raw = text;
 }
 
@@ -618,17 +567,19 @@ function dispatchText(text) {
 function setMode(mode, rerender = true) {
   state.mode = mode;
   document.querySelectorAll('.type-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.mode === mode);
+    const active = b.dataset.mode === mode;
+    b.classList.toggle('bg-white', active);
+    b.classList.toggle('font-semibold', active);
+    b.classList.toggle('text-brand', active);
+    b.classList.toggle('shadow-sm', active);
+    b.classList.toggle('font-medium', !active);
+    b.classList.toggle('text-[#5f6368]', !active);
   });
   if (rerender && state.hasContent && $contentArea.dataset.raw) {
     dispatchText($contentArea.dataset.raw);
   }
 }
 
-
-function showThemeBtn(_show) {
-  // header theme button removed; theme toggle lives in the code toolbar only
-}
 
 // ── Clipboard / Paste Button ──────────────────────────────────
 
@@ -637,21 +588,17 @@ function enablePasteBtn() {
 }
 
 async function handlePasteBtn() {
-  // Called only on explicit click (user gesture).
-  // On HTTPS production: no dialog — implicit permission granted.
-  // On file:// dev: browser asks once per session, then remembers.
-  try {
-    const text = await navigator.clipboard.readText();
-    if (text && text.trim()) {
-      dispatchText(text);
-      if ($pasteBtn) $pasteBtn.disabled = true;
-    }
-  } catch {
-    // Permission denied or API unavailable — nudge toward Ctrl+V
-    if ($pasteBtn) {
-      const orig = $pasteBtn.textContent;
-      $pasteBtn.textContent = '⌨ Use Ctrl+V';
-      setTimeout(() => { if ($pasteBtn) $pasteBtn.textContent = orig; }, 2500);
+  const payload = await window.DemoTabClipboard.fromClipboardApi(navigator.clipboard);
+  if (dispatchClipboardPayload(payload)) {
+    if ($pasteStatus) $pasteStatus.textContent = '';
+    return;
+  }
+
+  if ($pasteCapture) {
+    $pasteCapture.value = '';
+    $pasteCapture.focus({ preventScroll: true });
+    if ($pasteStatus) {
+      $pasteStatus.textContent = 'Tap and hold in the box, then choose Paste.';
     }
   }
 }
@@ -659,6 +606,11 @@ async function handlePasteBtn() {
 // ── Keyboard Shortcuts ────────────────────────────────────────
 
 function handleKeyDown(e) {
+  if (e.target instanceof HTMLElement &&
+      (e.target.matches('input, textarea, select') || e.target.isContentEditable)) {
+    return;
+  }
+
   // Ignore when modifier keys are held (except Shift for + sign)
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
@@ -705,13 +657,14 @@ function handleKeyDown(e) {
 
 function init() {
   $dropZone     = document.getElementById('drop-zone');
+  $dropRing     = document.getElementById('drop-ring');
+  $dropIcon     = document.getElementById('drop-icon');
   $contentArea  = document.getElementById('content-area');
   $clearBtn     = document.getElementById('clear-btn');
   $themeBtn     = document.getElementById('btn-theme');
   $pasteBtn     = document.getElementById('btn-paste');
-
-  // Theme button hidden until code/html content is active
-  showThemeBtn(false);
+  $pasteCapture = document.getElementById('paste-capture');
+  $pasteStatus  = document.getElementById('paste-status');
 
   document.querySelectorAll('.type-btn').forEach(btn => {
     btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -731,15 +684,26 @@ function init() {
     $pasteBtn.disabled = false;
   }
 
+  if ($pasteCapture) {
+    $pasteCapture.addEventListener('input', () => {
+      const text = $pasteCapture.value;
+      if (!text.trim()) return;
+      $pasteCapture.value = '';
+      $pasteCapture.blur();
+      if ($pasteStatus) $pasteStatus.textContent = '';
+      dispatchText(text);
+    });
+  }
+
   document.addEventListener('paste', handlePaste);
   document.addEventListener('keydown', handleKeyDown);
 
   document.body.addEventListener('dragover', e => {
     e.preventDefault();
-    $dropZone.classList.add('drag-over');
+    setDropActive(true);
   });
   document.body.addEventListener('dragleave', e => {
-    if (!e.relatedTarget) $dropZone.classList.remove('drag-over');
+    if (!e.relatedTarget) setDropActive(false);
   });
   document.body.addEventListener('drop', handleDrop);
 

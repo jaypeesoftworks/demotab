@@ -5,10 +5,19 @@
   "description": "Paste anything. Display beautifully. Nothing leaves your browser.",
   "homepage": "https://demotab.app",
   "scripts": {
-    "dev": "npx serve site --cors --no-clipboard",
-    "lint": "npx eslint site/app.js"
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -i ./src/tailwind.css -o ./site/app.css --minify",
+    "dev": "npm run build:css && node scripts/serve-static.js",
+    "lint": "npx eslint site/app.js site/clipboard.js site/markdown-renderer.js",
+    "test": "node --test"
   },
   "devDependencies": {
-    "serve": "^14.0.0"
+    "@tailwindcss/cli": "^4.3.1",
+    "@tailwindcss/typography": "^0.5.20",
+    "eslint": "^10.7.0",
+    "tailwindcss": "^4.3.1"
+  },
+  "dependencies": {
+    "markdown-it": "^14.3.0"
   }
 }

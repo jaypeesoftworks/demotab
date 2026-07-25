@@ -1,6 +1,6 @@
 # Contributing to DemoTab
 
-Thanks for your interest. DemoTab is intentionally minimal — no build step, no bundler, no runtime dependencies. Contributions that stay true to that constraint are very welcome.
+Thanks for your interest. DemoTab is intentionally minimal: it is statically deployed and never loads runtime dependencies from the network. Tailwind CSS is compiled locally and the generated stylesheet is committed with the site.
 
 ## Running locally
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Then open `http://localhost:3000` in your browser. That's it — no compilation needed.
+Then open `http://localhost:3000` in your browser. The development command compiles Tailwind locally before starting the privacy-restricted server.
 
 ## Linting
 
@@ -17,7 +17,7 @@ Then open `http://localhost:3000` in your browser. That's it — no compilation 
 npm run lint
 ```
 
-ESLint is configured in `.eslintrc.json`. Fix any errors before submitting a PR; warnings are advisory.
+ESLint is configured in `eslint.config.js`. Fix any errors before submitting a PR; warnings are advisory.
 
 ## Submitting a pull request
 
@@ -30,9 +30,9 @@ ESLint is configured in `.eslintrc.json`. Fix any errors before submitting a PR;
 ## Design constraints
 
 - **No external dependencies at runtime.** No CDN fonts, no analytics, no third-party scripts.
-- **No build step.** `site/` is deployed as-is. Keep it that way.
+- **Static deployment.** Run `npm run build` and commit the generated `site/app.css`; Cloudflare deploys `site/` as-is.
 - **CSP must not be weakened.** `connect-src 'none'` is the core privacy guarantee.
-- **`app.js` is a single file.** If a change grows it significantly, discuss first.
+- **Keep browser code focused.** Shared local-only behavior may be split into small scripts under `site/`.
 
 ## Reporting bugs
 

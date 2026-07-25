@@ -33,9 +33,9 @@ DemoTab ships with a `Content-Security-Policy: connect-src 'none'` header on eve
 
 ## Tech stack
 
-- **Vanilla JS** — zero frameworks, zero npm runtime dependencies
-- **Single-file app** — `app.js` + `app.css`, no bundler
-- **Custom markdown parser** — written from scratch (`parseMarkdown` / `parseInline`)
+- **Vanilla JS** — zero frameworks and no runtime network dependencies
+- **Tailwind CSS** — compiled locally and committed for static deployment; no CDN
+- **CommonMark-compatible Markdown** — rendered locally with vendored `markdown-it`; no CDN or runtime network dependency
 - **Custom syntax highlighter** — supports JavaScript, TypeScript, Python, Go, Rust, Java, SQL, CSS, HTML, Bash
 - **VS Code Dark+** and **GitHub Light** color schemes (WCAG AA contrast tested)
 - **SVG logo** — fully vectorized, text paths traced from source PNG
@@ -51,7 +51,7 @@ demotab.app/
 │   ├── index.html            <- Main app
 │   ├── about.html            <- Marketing / info page
 │   ├── app.js                <- All app logic (~700 lines, no dependencies)
-│   ├── app.css               <- All styles + CSS custom properties for theming
+│   ├── app.css               <- Generated Tailwind CSS deployed with the site
 │   ├── logo_full.svg         <- Vectorized logo (icon + wordmark)
 │   ├── favicon.ico           <- Multi-size (16/32/48px)
 │   ├── favicon-32x32.png
@@ -70,7 +70,7 @@ demotab.app/
 
 1. Connect the repo in the Cloudflare Pages dashboard
 2. Set **Build output directory** to `site`
-3. Leave **Build command** blank — there is no build step
+3. Leave **Build command** blank — the compiled CSS is committed in `site/`
 4. Deploy
 
 The `_headers` file is picked up automatically by Cloudflare Pages and applies per-route CSP and cache headers.
