@@ -1,14 +1,15 @@
 {
   "name": "demotab",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Paste anything. Display beautifully. Nothing leaves your browser.",
   "homepage": "https://demotab.app",
   "scripts": {
-    "build": "npm run build:css",
+    "build": "npm run sync:version && npm run build:css",
     "build:css": "tailwindcss -i ./src/tailwind.css -o ./site/app.css --minify",
     "dev": "npm run build:css && node scripts/serve-static.js",
-    "lint": "npx eslint site/app.js site/clipboard.js site/markdown-renderer.js",
+    "lint": "npx eslint site/app.js site/clipboard.js site/history.js site/markdown-renderer.js",
+    "sync:version": "node scripts/sync-version.js",
     "test": "node --test"
   },
   "devDependencies": {

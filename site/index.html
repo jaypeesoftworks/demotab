@@ -31,6 +31,9 @@
     </div>
 
     <div class="flex w-full min-w-0 items-center justify-center gap-1.5 sm:flex-1 sm:justify-end">
+      <button id="history-back" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-[13px] font-semibold text-[#5f6368] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-[#bdc1c6] disabled:opacity-45" title="Previous item" aria-label="Previous history item" disabled>&lt;</button>
+      <button id="history-forward" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-[13px] font-semibold text-[#5f6368] transition hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:text-[#bdc1c6] disabled:opacity-45" title="Next item" aria-label="Next history item" disabled>&gt;</button>
+      <span class="mx-1 h-5 w-px bg-[#e8eaed]" aria-hidden="true"></span>
       <button id="btn-font-dec" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-center text-[13px] font-medium text-[#5f6368] transition hover:border-brand hover:text-brand" title="Decrease font size (-)">A−</button>
       <button id="btn-font-inc" class="min-w-[30px] rounded-md border border-[#e8eaed] bg-white px-2 py-1 text-center text-[13px] font-medium text-[#5f6368] transition hover:border-brand hover:text-brand" title="Increase font size (+)">A+</button>
       <button id="clear-btn" class="hidden rounded-md border border-[#e8eaed] bg-white px-2.5 py-1 text-xs font-medium text-[#5f6368] transition hover:border-[#d93025] hover:text-[#d93025]" title="Clear (Esc)">Clear</button>
@@ -75,11 +78,13 @@
   <footer id="footer" class="flex h-[34px] shrink-0 items-center justify-center gap-1.5 border-t border-[#e8eaed] bg-white">
     <span class="text-[11px] text-[#9aa0a6]">Built by</span>
     <a class="text-[11px] font-medium text-[#9aa0a6] transition hover:text-brand" href="https://jaypeesoftworks.com" target="_blank" rel="noopener">Jaypee Softworks</a>
+    <span data-package-version class="text-[10px] text-[#bdc1c6]" aria-label="Version 0.2.1">· v0.2.1</span>
   </footer>
 </div>
 <script src="vendor/markdown-it.min.js?v=14.3.0"></script>
 <script src="markdown-renderer.js?v=20260725"></script>
 <script src="clipboard.js?v=20260725"></script>
+<script src="history.js?v=20260725"></script>
 <script src="app.js?v=20260725"></script>
 </body>
 </html>

@@ -17,6 +17,8 @@ const state = {
   fontSize:   16,       // content font size in px (code = fontSize - 2)
 };
 
+const memoryHistory = window.DemoTabHistory.createMemoryHistory(50);
+
 const FONT_MIN = 10;
 const FONT_MAX = 32;
 const FONT_STEP = 2;
@@ -25,6 +27,8 @@ const FONT_STEP = 2;
 
 let $dropZone, $dropRing, $dropIcon, $contentArea, $clearBtn;
 let $themeBtn, $pasteBtn, $pasteCapture, $pasteStatus;
+let $historyBack, $historyForward;
+let activeImageUrl = null;
 
 // ── Syntax Highlighter ───────────────────────────────────────
 
@@ -356,27 +360,73 @@ function toggleWrap() {
 
 function renderText(text) {
   const div = document.createElement('div');
-  div.className = 'mx-auto w-full max-w-[860px] flex-1 px-4 py-4 font-sans leading-[1.8] text-[#202124] [font-size:var(--content-font-size)] sm:px-[clamp(20px,8vw,120px)] sm:py-7';
-  const blocks = text.split(/\n{2,}/);
-  for (const block of blocks) {
-    const trimmed = block.trim();
-    if (!trimmed) continue;
-    const lines = trimmed.split('\n');
-    const avgLen = lines.reduce((s, l) => s + l.length, 0) / lines.length;
-    const isPre = lines.length > 3 && avgLen < 60;
-    if (isPre) {
-      const pre = document.createElement('div');
-      pre.className = 'my-3 whitespace-pre-wrap break-all rounded-lg border border-[#e8eaed] bg-[#f8f9fa] px-4 py-3 font-mono text-[0.85em] leading-[1.6]';
-      pre.textContent = trimmed;
-      div.appendChild(pre);
-    } else {
-      const p = document.createElement('p');
-      p.className = 'mb-[1.1em] last:mb-0';
-      p.textContent = lines.join(' ');
-      div.appendChild(p);
-    }
-  }
+  div.className = 'mx-auto w-full max-w-[860px] flex-1 whitespace-pre-wrap break-words px-4 py-4 font-sans leading-[1.8] text-[#202124] [font-size:var(--content-font-size)] sm:px-[clamp(20px,8vw,120px)] sm:py-7';
+  div.textContent = text;
   return div;
+}
+
+function insertPlainTextAtSelection(text) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function addTextEditControl(editor, originalText) {
+  const control = document.createElement('div');
+  control.className = 'pointer-events-none sticky top-0 z-20 flex min-h-12 w-full shrink-0 items-center justify-end bg-gradient-to-b from-white via-white/95 to-transparent px-6 sm:px-8';
+
+  const button = document.createElement('button');
+  button.className = 'pointer-events-auto min-w-16 rounded-lg border border-[#dadce0] bg-white/95 px-3 py-1.5 text-center text-xs font-semibold text-[#5f6368] shadow-md backdrop-blur transition hover:border-brand hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
+  button.textContent = 'Edit';
+  button.title = 'Edit this text';
+
+  button.addEventListener('click', () => {
+    if (editor.dataset.textEditor === 'true') {
+      const editedText = editor.innerText.replace(/\r\n?/g, '\n').trimEnd();
+      editor.dataset.textEditor = 'false';
+      if (editedText !== originalText) {
+        dispatchText(editedText);
+      } else {
+        dispatchText(originalText, false);
+      }
+      return;
+    }
+
+    editor.textContent = originalText;
+    editor.dataset.textEditor = 'true';
+    editor.setAttribute('contenteditable', 'plaintext-only');
+    editor.setAttribute('role', 'textbox');
+    editor.setAttribute('aria-multiline', 'true');
+    editor.classList.add(
+      'whitespace-pre-wrap',
+      'rounded-xl',
+      'bg-blue-50/30',
+      'outline-2',
+      'outline-offset-[-2px]',
+      'outline-blue-200',
+      '[-webkit-user-modify:read-write-plaintext-only]'
+    );
+    button.textContent = 'Done';
+    button.title = 'Finish editing';
+    editor.focus();
+  });
+
+  editor.addEventListener('keydown', event => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      button.click();
+    }
+  });
+
+  control.appendChild(button);
+  $contentArea.prepend(control);
 }
 
 function renderMarkdown(text) {
@@ -469,6 +519,52 @@ function renderImage(src) {
   return wrap;
 }
 
+function releaseActiveImageUrl() {
+  if (!activeImageUrl) return;
+  URL.revokeObjectURL(activeImageUrl);
+  activeImageUrl = null;
+}
+
+function updateHistoryControls() {
+  if ($historyBack) {
+    $historyBack.disabled = !(memoryHistory.canBack ||
+      (!state.hasContent && memoryHistory.hasCurrent));
+  }
+  if ($historyForward) $historyForward.disabled = !memoryHistory.canForward;
+}
+
+function dispatchImage(blob, remember = true) {
+  if (remember) {
+    memoryHistory.push({ type: 'image', value: blob, mode: 'image', codeLang: 'auto' });
+  }
+  releaseActiveImageUrl();
+  activeImageUrl = URL.createObjectURL(blob);
+  delete $contentArea.dataset.raw;
+  setMode('image', false);
+  showContent(renderImage(activeImageUrl));
+  updateHistoryControls();
+}
+
+function displayHistoryEntry(entry) {
+  if (!entry) return;
+  state.mode = entry.mode;
+  state.codeLang = entry.codeLang;
+  setMode(entry.mode, false);
+  if (entry.type === 'image') {
+    dispatchImage(entry.value, false);
+  } else {
+    dispatchText(entry.value, false);
+  }
+  updateHistoryControls();
+}
+
+function navigateHistory(direction) {
+  const entry = direction < 0
+    ? memoryHistory.back(!state.hasContent)
+    : memoryHistory.forward();
+  displayHistoryEntry(entry);
+}
+
 // ── Show / Clear Content ──────────────────────────────────────
 
 function showContent(el) {
@@ -482,13 +578,16 @@ function showContent(el) {
 }
 
 function clearContent() {
+  releaseActiveImageUrl();
   $contentArea.innerHTML = '';
+  delete $contentArea.dataset.raw;
   $contentArea.classList.add('hidden');
   $contentArea.classList.remove('flex', 'flex-col');
   $dropZone.style.display = '';
   $clearBtn.classList.add('hidden');
   state.hasContent = false;
   setMode('auto');
+  updateHistoryControls();
 }
 
 // ── Paste / Drop ─────────────────────────────────────────────
@@ -496,8 +595,7 @@ function clearContent() {
 function dispatchClipboardPayload(payload) {
   if (!payload) return false;
   if (payload.type === 'image') {
-    setMode('image', false);
-    showContent(renderImage(URL.createObjectURL(payload.value)));
+    dispatchImage(payload.value);
     return true;
   }
   if (payload.type === 'text' && payload.value.trim()) {
@@ -508,6 +606,17 @@ function dispatchClipboardPayload(payload) {
 }
 
 function handlePaste(e) {
+  const activeEditor = e.target?.closest?.('[data-text-editor="true"]');
+  if (activeEditor) {
+    if (e.clipboardData) {
+      const plainText = e.clipboardData.getData('text/plain') ||
+        e.clipboardData.getData('text/html') || '';
+      e.preventDefault();
+      if (plainText) insertPlainTextAtSelection(plainText);
+    }
+    return;
+  }
+
   const payload = window.DemoTabClipboard.fromClipboardEvent(e);
   if (!payload) {
     // Mobile Safari can omit clipboardData and insert into a focused editable
@@ -533,8 +642,7 @@ function handleDrop(e) {
   if (dt.files && dt.files.length > 0) {
     const file = dt.files[0];
     if (file.type.startsWith('image/')) {
-      setMode('image', false);
-      showContent(renderImage(URL.createObjectURL(file)));
+      dispatchImage(file);
       return;
     }
     const reader = new FileReader();
@@ -548,7 +656,16 @@ function handleDrop(e) {
 
 // ── Dispatch ─────────────────────────────────────────────────
 
-function dispatchText(text) {
+function dispatchText(text, remember = true) {
+  releaseActiveImageUrl();
+  if (remember) {
+    memoryHistory.push({
+      type: 'text',
+      value: text,
+      mode: state.mode,
+      codeLang: state.codeLang,
+    });
+  }
   const effectiveMode = state.mode === 'auto' ? detectType(text) : state.mode;
   const isCode = effectiveMode === 'code';
   if (isCode) {
@@ -557,9 +674,12 @@ function dispatchText(text) {
   } else if (effectiveMode === 'markdown') {
     showContent(renderMarkdown(text));
   } else {
-    showContent(renderText(text));
+    const editor = renderText(text);
+    showContent(editor);
+    if (effectiveMode === 'text') addTextEditControl(editor, text);
   }
   $contentArea.dataset.raw = text;
+  updateHistoryControls();
 }
 
 // ── Mode ─────────────────────────────────────────────────────
@@ -576,7 +696,7 @@ function setMode(mode, rerender = true) {
     b.classList.toggle('text-[#5f6368]', !active);
   });
   if (rerender && state.hasContent && $contentArea.dataset.raw) {
-    dispatchText($contentArea.dataset.raw);
+    dispatchText($contentArea.dataset.raw, false);
   }
 }
 
@@ -665,6 +785,8 @@ function init() {
   $pasteBtn     = document.getElementById('btn-paste');
   $pasteCapture = document.getElementById('paste-capture');
   $pasteStatus  = document.getElementById('paste-status');
+  $historyBack  = document.getElementById('history-back');
+  $historyForward = document.getElementById('history-forward');
 
   document.querySelectorAll('.type-btn').forEach(btn => {
     btn.addEventListener('click', () => setMode(btn.dataset.mode));
@@ -674,6 +796,8 @@ function init() {
   // Font size buttons
   document.getElementById('btn-font-dec')?.addEventListener('click', () => changeFontSize(-FONT_STEP));
   document.getElementById('btn-font-inc')?.addEventListener('click', () => changeFontSize(FONT_STEP));
+  $historyBack?.addEventListener('click', () => navigateHistory(-1));
+  $historyForward?.addEventListener('click', () => navigateHistory(1));
 
 
   if ($clearBtn) $clearBtn.addEventListener('click', clearContent);
@@ -714,6 +838,7 @@ function init() {
   // Apply initial state
   applyFontSize();
   applyCodeTheme();
+  updateHistoryControls();
 }
 
 document.addEventListener('DOMContentLoaded', init);
